@@ -3,7 +3,10 @@ use std::{borrow::Cow, future::Future};
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
 
-use wgpu::{Adapter, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration};
+use wgpu::util::DeviceExt;
+use wgpu::{
+    Adapter, Buffer, Device, Instance, Queue, RenderPipeline, Surface, SurfaceConfiguration,
+};
 use winit::{
     event_loop::{ActiveEventLoop, EventLoopProxy},
     window::Window,
@@ -28,7 +31,51 @@ pub struct Graphics {
     pub device: Device,
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
+    pub vertex_buffer: Buffer,
 }
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Vertex {
+    pub position: [f32; 3],
+    pub color: [f32; 3],
+}
+
+impl Vertex {
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+            ],
+        }
+    }
+}
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [0.0, 0.5, 0.0],
+        color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+        color: [0.0, 1.0, 0.0],
+    },
+    Vertex {
+        position: [0.5, 0.5, 0.0],
+        color: [1.0, 0.0, 1.0],
+    },
+];
 
 pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Graphics> + 'static {
     #[allow(unused_mut)]
@@ -103,13 +150,19 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Gra
             push_constant_ranges: &[],
         });
         let swapchain_capabilities = surface.get_capabilities(&adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
+        // let swapchain_format = swapchain_capabilities.formats[0];
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&pipeline_layout),
@@ -117,7 +170,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Gra
                 module: &shader,
                 entry_point: "vs_main",
                 compilation_options: Default::default(),
-                buffers: &[],
+                buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -128,7 +181,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Gra
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
-                //targets: &[Some(swapchain_format.into())],
+                //targets: &[Some(wapchain_format.into())],
             }),
             primitive: Default::default(),
             depth_stencil: None,
@@ -146,6 +199,7 @@ pub fn create_graphics(event_loop: &ActiveEventLoop) -> impl Future<Output = Gra
             device,
             queue,
             render_pipeline,
+            vertex_buffer,
         }
     }
 }

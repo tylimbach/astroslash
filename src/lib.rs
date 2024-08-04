@@ -4,6 +4,8 @@ use graphics::{Graphics, GraphicsBuilder, MaybeGraphics};
 #[allow(unused_imports)]
 use wasm_bindgen::{prelude::wasm_bindgen, throw_str, JsCast, UnwrapThrowExt};
 
+use web_sys::js_sys::Atomics::add_bigint;
+use wgpu::util::RenderEncoder;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -48,6 +50,7 @@ impl Application {
                 ..Default::default()
             });
             render_pass.set_pipeline(&gfx.render_pipeline);
+            render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
             render_pass.draw(0..3, 0..1);
         }
 
@@ -111,6 +114,8 @@ impl ApplicationHandler<Graphics> for Application {
 
 pub fn run() {
     let event_loop = EventLoop::with_user_event().build().unwrap_throw();
+    event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+
     let mut app = Application::new(&event_loop);
     event_loop.run_app(&mut app).unwrap_throw();
 }
