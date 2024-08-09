@@ -52,6 +52,7 @@ impl Vertex {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
+            // attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3]
             attributes: &[
                 wgpu::VertexAttribute {
                     offset: 0,
@@ -78,8 +79,8 @@ pub const VERTICES: &[Vertex] = &[
         color: [0.0, 1.0, 0.0],
     },
     Vertex {
-        position: [0.5, 0.5, 0.0],
-        color: [1.0, 0.0, 1.0],
+        position: [0.5, -0.5, 0.0],
+        color: [0.0, 0.0, 1.0],
     },
 ];
 
@@ -286,7 +287,7 @@ impl Application {
             });
             render_pass.set_pipeline(&gfx.render_pipeline);
             render_pass.set_vertex_buffer(0, gfx.vertex_buffer.slice(..));
-            render_pass.draw(0..3, 0..1);
+            render_pass.draw(0..VERTICES.len() as u32, 0..1);
         }
 
         let command_buffer = encoder.finish();
